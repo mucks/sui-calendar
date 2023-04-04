@@ -6,12 +6,23 @@ module sui_calendar::calendar {
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
 
-    fun init(_ctx: &mut TxContext) {
 
+    fun init(ctx: &mut TxContext) {
+        let statistics = Statistics {
+            id: object::new(ctx),
+            calendar_count: 0,
+            event_count: 0,
+        };
+
+        transfer::transfer(statistics, tx_context::sender(ctx));
 
     }
 
-
+    struct Statistics has key, store {
+        id: UID,
+        calendar_count: u64,
+        event_count: u64,
+    }
 
     struct Calendar has key {
         id: UID,
@@ -31,12 +42,15 @@ module sui_calendar::calendar {
         self.title
     }
 
-    public fun create_calendar(title_bytes: vector<u8>, ctx: &mut TxContext) {
+    public entry fun create_calendar(stats: &mut Statistics, title_bytes: vector<u8>, ctx: &mut TxContext) {
         let calendar = Calendar {
             id: object::new(ctx),
             title: string::utf8(title_bytes),
             events: vector::empty()
         };
+
+        stats.calendar_count = stats.calendar_count + 1;
+
         transfer::transfer(calendar, tx_context::sender(ctx));
     }
 
@@ -44,10 +58,38 @@ module sui_calendar::calendar {
     #[test]
     public fun test_create_calendar() {
         use sui::tx_context;
+        use sui::test_scenario;
 
         let ctx = tx_context::dummy();
         let title_bytes = vector::empty<u8>();
-        create_calendar(title_bytes, &mut ctx);
+        
+        let admin = @0xABBA;
+
+        let scenario = test_scenario::begin(admin);
+
+        test_scenario::next_tx(&mut scenario, admin); 
+        {
+            init(test_scenario::ctx(&mut scenario));
+        };
+
+
+        test_scenario::next_tx(&mut scenario, admin);
+        {
+
+            let stats = test_scenario::take_from_sender<Statistics>(&mut scenario);
+            create_calendar(&mut stats, title_bytes, &mut ctx);
+            test_scenario::return_to_sender(&mut scenario, stats);
+        };
+
+
+        test_scenario::next_tx(&mut scenario, admin);
+        {
+            let stats = test_scenario::take_from_sender<Statistics>(&mut scenario);
+            assert!(stats.calendar_count == 1, 0);
+            test_scenario::return_to_sender(&mut scenario, stats);
+        };
+        
+        test_scenario::end(scenario);
 
     }
 
