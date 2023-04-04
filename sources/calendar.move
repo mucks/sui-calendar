@@ -5,6 +5,7 @@ module sui_calendar::calendar {
     use sui::object::{Self, UID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
+    use std::debug;
 
 
     fun init(ctx: &mut TxContext) {
@@ -40,6 +41,10 @@ module sui_calendar::calendar {
 
     public fun calendar_title(self: &Calendar): String {
         self.title
+    }
+
+    public fun debug_print_message(debug_input: vector<u8>) {
+        debug::print(&debug_input);
     }
 
     public entry fun create_calendar(stats: &mut Statistics, title_bytes: vector<u8>, ctx: &mut TxContext) {
