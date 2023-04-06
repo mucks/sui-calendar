@@ -1,18 +1,14 @@
-import './App.css';
+import { ConnectButton, useWallet } from '@suiet/wallet-kit';
+import './App.css'
 import { JsonRpcProvider, TransactionBlock, localnetConnection } from '@mysten/sui.js';
-import { ConnectButton } from '@suiet/wallet-kit';
-import { useWallet } from '@suiet/wallet-kit';
 import { useEffect } from 'react';
-
 
 const PACKAGE_ID = process.env.REACT_APP_MOVE_PACKAGE_ID;
 const STATISTICS_OBJECT_ID = process.env.REACT_APP_MOVE_STATISTICS_OBJECT_ID;
 
-
 const provider = new JsonRpcProvider(localnetConnection);
 
 function App() {
-
   const wallet = useWallet();
 
   useEffect(() => {
@@ -77,4 +73,4 @@ function App() {
   );
 }
 
-export default App;
+export default App

@@ -3,7 +3,7 @@ name = "sui_calendar"
 version = "0.0.1"
 
 [dependencies]
-Sui = { local = "../../blockchains/sui/crates/sui-framework/packages/sui-framework" }
+Sui = { local = "../../../blockchains/sui/crates/sui-framework/packages/sui-framework" }
 
 [addresses]
 sui_calendar = "0x0"
