@@ -3,8 +3,8 @@ import './App.css'
 import { JsonRpcProvider, TransactionBlock, localnetConnection } from '@mysten/sui.js';
 import { useEffect } from 'react';
 
-const PACKAGE_ID = process.env.REACT_APP_MOVE_PACKAGE_ID;
-const STATISTICS_OBJECT_ID = process.env.REACT_APP_MOVE_STATISTICS_OBJECT_ID;
+const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
+const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
 
 const provider = new JsonRpcProvider(localnetConnection);
 
@@ -64,7 +64,7 @@ function App() {
 
 
   return (
-    <div className="App">
+    <div>
       <ConnectButton />
       <button onClick={createCalendar}>Create Calendar</button>
       <button onClick={debugPrintMessage}>Debug Print Message</button>
