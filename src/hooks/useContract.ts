@@ -2,12 +2,20 @@ import { JsonRpcProvider, TransactionBlock, localnetConnection } from "@mysten/s
 import { useWallet } from "@suiet/wallet-kit";
 import { useEffect, useState } from "react";
 import { Calendar } from "../types/Calendar";
+import { CalendarEvent } from "../types/CalendarEvent";
 
 const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
 const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
 const CALENDAR_OBJECT_TYPE = `${PACKAGE_ID}::calendar::Calendar`;
+const CALENDAR_EVENT_OBJECT_TYPE = `${PACKAGE_ID}::calendar::CalendarEvent`;
 
 const provider = new JsonRpcProvider(localnetConnection);
+
+const getObjectContentsByType = async (owner: string, type: string) => {
+    const resp = await provider.getOwnedObjects({ owner: owner, options: { showContent: true } });
+    const objects = resp.data.filter(d => d.data && d.data.content).map(d => d.data!.content);
+    return objects.filter(o => (o as any).type === type) as any[];
+}
 
 const useContract = () => {
     const wallet = useWallet();
@@ -36,6 +44,20 @@ const useContract = () => {
         });
     }
 
+    const getCalendarEvents = async (calendarId: string): Promise<CalendarEvent[]> => {
+        const events = await getObjectContentsByType(owner, CALENDAR_EVENT_OBJECT_TYPE);
+        console.log(events);
+        return events.map(e => {
+            return {
+                title: e.fields.title,
+                start: new Date(e.fields.start),
+                end: new Date(e.fields.end),
+                id: e.fields.id.id
+            }
+        });
+    }
+
+
     const createCalendar = async (name: string) => {
         const tx = new TransactionBlock();
 
@@ -51,10 +73,44 @@ const useContract = () => {
         });
     }
 
+    const createCalendarEvent = async (calendarId: string, name: string, start: string, end: string) => {
+        const tx = new TransactionBlock();
+
+        tx.moveCall({
+            target: `${PACKAGE_ID}::calendar::create_calendar_event`,
+            arguments: [
+                tx.object(STATISTICS_OBJECT_ID),
+                tx.object(calendarId),
+                tx.pure(name),
+                tx.pure(+new Date(start)),
+                tx.pure(+new Date(end))
+            ],
+        });
+
+        await wallet.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+        });
+    }
+
+    const deleteCalendarEvent = async (eventId: string) => {
+        const tx = new TransactionBlock();
+        tx.moveCall({
+            target: `${PACKAGE_ID}::calendar::delete_calendar_event`,
+            arguments: [
+                tx.object(eventId),
+            ],
+        });
+
+        await wallet.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+        });
+    }
+
+
+
     const getCalendars = async (): Promise<Calendar[]> => {
-        const resp = await provider.getOwnedObjects({ owner: owner, options: { showContent: true } });
-        const objects = resp.data.filter(d => d.data && d.data.content).map(d => d.data!.content);
-        const calendars: any[] = objects.filter(o => (o as any).type === CALENDAR_OBJECT_TYPE);
+        const calendars = await getObjectContentsByType(owner, CALENDAR_OBJECT_TYPE);
+
         return calendars.map(c => {
             return {
                 title: c.fields.title,
@@ -63,6 +119,8 @@ const useContract = () => {
         })
     }
 
+
+
     const getStats = async () => {
         const stats = await provider.getObject({ id: STATISTICS_OBJECT_ID, options: { showContent: true } });
         return stats;
@@ -70,6 +128,9 @@ const useContract = () => {
 
     return {
         isReady,
+        deleteCalendarEvent,
+        createCalendarEvent,
+        getCalendarEvents,
         debugPrintMessage,
         createCalendar,
         getCalendars,

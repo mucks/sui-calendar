@@ -2,7 +2,7 @@ module sui_calendar::calendar {
 
     use std::string::{Self, String};
     use std::vector;
-    use sui::object::{Self, UID};
+    use sui::object::{Self, UID, ID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use std::debug;
@@ -29,13 +29,13 @@ module sui_calendar::calendar {
     struct Calendar has key {
         id: UID,
         title: String,
-        events: vector<Event>,
+        events: vector<CalendarEvent>,
     }
 
-    struct Event has key, store {
+    struct CalendarEvent has key, store {
         id: UID,
-        calendar: address,
-        name: String,
+        calendar_id: ID,
+        title: String,
         start_timestamp: u64,
         end_timestamp: u64,
     }
@@ -59,6 +59,7 @@ module sui_calendar::calendar {
         stats.calendar_count = stats.calendar_count + 1;
 
         transfer::transfer(calendar, tx_context::sender(ctx));
+        
     }
 
 
@@ -100,19 +101,24 @@ module sui_calendar::calendar {
 
     }
 
-    public fun create_event(calendar: address, name_bytes: vector<u8>, start_timestamp: u64, end_timestamp: u64, ctx: &mut TxContext) {
-        let event = Event {
+    public entry fun create_calendar_event(stats: &mut Statistics, calendar: &Calendar, title_bytes: vector<u8>, start_timestamp: u64, end_timestamp: u64, ctx: &mut TxContext) {
+        let calendar_id = object::id(calendar);
+
+        let event = CalendarEvent {
             id: object::new(ctx),
-            calendar: calendar,
-            name: string::utf8(name_bytes),
+            calendar_id: calendar_id,
+            title: string::utf8(title_bytes),
             start_timestamp: start_timestamp,
             end_timestamp: end_timestamp,
         };
-        transfer::transfer(event, calendar);
+
+        stats.event_count = stats.event_count + 1;
+
+        transfer::transfer(event, tx_context::sender(ctx));
     }
 
-    public fun delete_event(event: Event) {
-        let Event { id, calendar: _, name: _, start_timestamp: _, end_timestamp: _ } = event;
+    public fun delete_calendar_event(event: CalendarEvent) {
+        let CalendarEvent { id, calendar_id: _, title: _, start_timestamp: _, end_timestamp: _ } = event;
         object::delete(id);
     }
 
