@@ -1,8 +1,8 @@
 import { JsonRpcProvider, TransactionBlock, localnetConnection } from "@mysten/sui.js";
 import { useWallet } from "@suiet/wallet-kit";
 import { useEffect, useState } from "react";
-import { Calendar } from "../types/Calendar";
-import { CalendarEvent } from "../types/CalendarEvent";
+import { CalendarType } from "../types/CalendarType";
+import { CalendarEventType } from "../types/CalendarEventType";
 
 const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
 const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
@@ -16,6 +16,8 @@ const getObjectContentsByType = async (owner: string, type: string) => {
     const objects = resp.data.filter(d => d.data && d.data.content).map(d => d.data!.content);
     return objects.filter(o => (o as any).type === type) as any[];
 }
+
+export type Contract = ReturnType<typeof useContract>;
 
 const useContract = () => {
     const wallet = useWallet();
@@ -44,14 +46,14 @@ const useContract = () => {
         });
     }
 
-    const getCalendarEvents = async (calendarId: string): Promise<CalendarEvent[]> => {
+    const getCalendarEvents = async (calendarId: string): Promise<CalendarEventType[]> => {
         const events = await getObjectContentsByType(owner, CALENDAR_EVENT_OBJECT_TYPE);
         console.log(events);
         return events.map(e => {
             return {
                 title: e.fields.title,
-                start: new Date(e.fields.start),
-                end: new Date(e.fields.end),
+                start: new Date(+e.fields.start_timestamp),
+                end: new Date(+e.fields.end_timestamp),
                 id: e.fields.id.id
             }
         });
@@ -108,7 +110,7 @@ const useContract = () => {
 
 
 
-    const getCalendars = async (): Promise<Calendar[]> => {
+    const getCalendars = async (): Promise<CalendarType[]> => {
         const calendars = await getObjectContentsByType(owner, CALENDAR_OBJECT_TYPE);
 
         return calendars.map(c => {

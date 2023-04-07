@@ -1,0 +1,56 @@
+/* adjust size */
+
+
+.react-calendar {
+    width: 100%;
+}
+
+
+/* Dark Theme */
+
+/* Set the background color of the calendar */
+.react-calendar {
+    background-color: #333;
+}
+
+/* Change the color of the days of the week */
+.react-calendar__month-view__weekdays__weekday {
+    color: #ccc;
+}
+
+/* Change the color of the day numbers */
+.react-calendar__tile {
+    color: #ccc;
+}
+
+
+.react-calendar__tile:hover {
+    background-color: #555 !important;
+}
+
+.react-calendar__tile--now {
+    background: darkgreen !important;
+}
+
+
+/* Change the background color of the selected date */
+.react-calendar__tile--active {
+    background-color: #555;
+}
+
+/* Change the color of the text in the header */
+.react-calendar__navigation__label {
+    color: #ccc;
+}
+
+/* Change the background color of the navigation buttons */
+.react-calendar__navigation button {
+    background-color: #555;
+    color: #ccc;
+}
+
+/* Change the background color of the "Today" button */
+.react-calendar__navigation button.react-calendar__navigation__today-button {
+    background-color: #555;
+    color: #ccc;
+}
