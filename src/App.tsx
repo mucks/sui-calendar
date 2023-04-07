@@ -1,73 +1,54 @@
 import { ConnectButton, useWallet } from '@suiet/wallet-kit';
 import './App.css'
 import { JsonRpcProvider, TransactionBlock, localnetConnection } from '@mysten/sui.js';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import useContract from './hooks/useContract';
+import { Calendar } from './types/Calendar';
 
-const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
-const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
-
-const provider = new JsonRpcProvider(localnetConnection);
 
 function App() {
-  const wallet = useWallet();
+  const contract = useContract();
+  const [calendarName, setCalendarName] = useState('');
+  const [calendars, setCalendars] = useState<Calendar[]>([]);
 
   useEffect(() => {
-    if (!wallet.connected) {
-      return;
-    }
-
-    (async () => {
-      const objects = await provider.getOwnedObjects({ owner: wallet.account?.address!, options: { showContent: true } });
-      console.log('objects', objects);
+    if (!contract.isReady) return;
+    getCalendars();
+  }, [contract.isReady])
 
 
-    })();
-
-    console.log('package id: ', PACKAGE_ID)
-    console.log('statistics object id: ', STATISTICS_OBJECT_ID)
-    console.log('connected wallet name: ', wallet.name)
-    console.log('account address: ', wallet.account?.address)
-    console.log('account publicKey: ', wallet.account?.publicKey)
-
-
-
-  }, [wallet.connected, wallet.name, wallet.account?.address, wallet.account?.publicKey])
-
-  const debugPrintMessage = async () => {
-    const tx = new TransactionBlock();
-
-    tx.moveCall({
-      target: `${PACKAGE_ID}::calendar::debug_print_message`,
-      arguments: [tx.pure('Hello World')],
-    });
-
-    await wallet.signAndExecuteTransactionBlock({
-      transactionBlock: tx,
-    });
+  const createCalendarForm = () => {
+    return <form>
+      <input type="text" placeholder="Calendar Name" onChange={e => setCalendarName(e.target.value)} />
+      <button onClick={() => contract.createCalendar(calendarName)} type="button">Create Calendar</button>
+    </form>
   }
 
+  const getCalendars = async () => {
+    const calendars = await contract.getCalendars();
+    setCalendars(calendars);
+  }
 
-  const createCalendar = async () => {
-    const tx = new TransactionBlock();
+  const calendarList = () => {
+    const calendarListItem = (calendar: Calendar) => {
+      return <li key={calendar.id}>{calendar.id} : {calendar.title}</li>
+    }
 
-    tx.moveCall({
-      target: `${PACKAGE_ID}::calendar::create_calendar_without_statistics`,
-      arguments: [
-        tx.pure('TestCalendar')],
-    });
-
-    await wallet.signAndExecuteTransactionBlock({
-      transactionBlock: tx,
-    });
-
+    return <div>
+      <h1>Calendar List</h1>
+      <ul>
+        {calendars.map(calendar => calendarListItem(calendar))}
+      </ul>
+    </div>
   }
 
 
   return (
     <div>
       <ConnectButton />
-      <button onClick={createCalendar}>Create Calendar</button>
-      <button onClick={debugPrintMessage}>Debug Print Message</button>
+      <button onClick={() => contract.debugPrintMessage("Hello")}>Debug Print Message</button>
+      {createCalendarForm()}
+      {calendarList()}
 
     </div>
   );

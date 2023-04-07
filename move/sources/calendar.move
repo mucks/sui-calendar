@@ -15,7 +15,8 @@ module sui_calendar::calendar {
             event_count: 0,
         };
 
-        transfer::transfer(statistics, tx_context::sender(ctx));
+        // make the statistics object shared so that it can be mutated by all transactions that have access to it
+        transfer::share_object(statistics);
 
     }
 
@@ -46,16 +47,6 @@ module sui_calendar::calendar {
     public fun debug_print_message(debug_input: vector<u8>) {
         let s: std::string::String = std::string::utf8(debug_input);
         debug::print(&s);
-    }
-
-    public fun create_calendar_without_statistics(title_bytes: vector<u8>, ctx: &mut TxContext) {
-        let calendar = Calendar {
-            id: object::new(ctx),
-            title: string::utf8(title_bytes),
-            events: vector::empty()
-        };
-
-        transfer::transfer(calendar, tx_context::sender(ctx));
     }
 
     public entry fun create_calendar(stats: &mut Statistics, title_bytes: vector<u8>, ctx: &mut TxContext) {
