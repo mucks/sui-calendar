@@ -4,6 +4,7 @@ import useContract from "../hooks/useContract";
 import { CalendarType } from "../types/CalendarType";
 import { Box, Button, Container, Dialog, DialogTitle, FormControl, Grid, InputLabel, MenuItem, Select } from "@mui/material";
 import Calendar from "../components/Calendar";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 export default function Home() {
     const contract = useContract();
@@ -59,6 +60,7 @@ export default function Home() {
     const [dialog, setDialog] = useState(false);
 
     return <Container>
+        <LoadingOverlay open={!contract.isReady || contract.loading} />
         <Grid container spacing={2}>
             <Grid item xs={4}>
                 {calendarSelector()}

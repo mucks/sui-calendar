@@ -1,4 +1,4 @@
-import { JsonRpcProvider, TransactionBlock, localnetConnection } from "@mysten/sui.js";
+import { JsonRpcProvider, SuiEvent, TransactionBlock, localnetConnection } from "@mysten/sui.js";
 import { useWallet } from "@suiet/wallet-kit";
 import { useEffect, useState } from "react";
 import { CalendarType } from "../types/CalendarType";
@@ -25,10 +25,21 @@ const getObjectContentsByType = async (owner: string, type: string) => {
 
 export type Contract = ReturnType<typeof useContract>;
 
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
 const useContract = () => {
     const wallet = useWallet();
     const [isReady, setIsReady] = useState(false);
     const [owner, setOwner] = useState<string>('');
+    const [loading, setLoading] = useState(false);
+
+    // This is a temporary solution and should be replaced with a better solution
+    const wait = async () => {
+        const waitTime = PROD ? 5000 : 1000;
+        setLoading(true);
+        await delay(waitTime);
+        setLoading(false);
+    };
 
     useEffect(() => {
         if (wallet.account) {
@@ -53,7 +64,6 @@ const useContract = () => {
     }
 
 
-
     const createCalendar = async (name: string) => {
         const tx = new TransactionBlock();
 
@@ -67,6 +77,7 @@ const useContract = () => {
         await wallet.signAndExecuteTransactionBlock({
             transactionBlock: tx,
         });
+        await wait();
     }
 
     const createCalendarEvent = async (calendarId: string, name: string, start: string, end: string) => {
@@ -86,6 +97,8 @@ const useContract = () => {
         await wallet.signAndExecuteTransactionBlock({
             transactionBlock: tx,
         });
+
+        await wait();
     }
 
     const deleteCalendarEvent = async (calendarId: string, eventId: string) => {
@@ -102,6 +115,8 @@ const useContract = () => {
         await wallet.signAndExecuteTransactionBlock({
             transactionBlock: tx,
         });
+
+        await wait();
     }
 
 
@@ -139,6 +154,8 @@ const useContract = () => {
         await wallet.signAndExecuteTransactionBlock({
             transactionBlock: tx,
         });
+
+        await wait();
     }
 
 
@@ -149,6 +166,7 @@ const useContract = () => {
     }
 
     return {
+        loading,
         isReady,
         deleteCalendar,
         deleteCalendarEvent,
