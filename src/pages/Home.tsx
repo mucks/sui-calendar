@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import CalendarList from "../components/CalendarList";
 import CreateCalendarForm from "../components/CreateCalendarForm";
 import useContract from "../hooks/useContract";
 import { CalendarType } from "../types/CalendarType";
@@ -25,10 +24,14 @@ export default function Home() {
 
     const getCalendars = async () => {
         const calendars = await contract.getCalendars();
+        console.log(calendars);
         setCalendars(calendars);
         if (calendars.length > 0) {
             setCalendarId(calendars[0].id);
             setCalendar(calendars[0]);
+        } else {
+            setCalendarId('');
+            setCalendar(null);
         }
     }
 
@@ -53,7 +56,7 @@ export default function Home() {
         </Box>
     };
 
-    const [createCalendarDialogOpen, setCreateCalendarDialogOpen] = useState(false);
+    const [dialog, setDialog] = useState(false);
 
     return <Container>
         <Grid container spacing={2}>
@@ -61,17 +64,17 @@ export default function Home() {
                 {calendarSelector()}
             </Grid>
             <Grid item xs={4}>
-                <Dialog onClose={() => setCreateCalendarDialogOpen(false)} open={createCalendarDialogOpen}>
+                <Dialog onClose={() => setDialog(false)} open={dialog}>
                     <DialogTitle>Create Calendar</DialogTitle>
                     <Box sx={{ p: 2 }}>
-                        <CreateCalendarForm contract={contract} onCreate={() => getCalendars()} />
+                        <CreateCalendarForm contract={contract} onCreate={() => { setDialog(false); getCalendars(); }} />
                     </Box>
                 </Dialog>
-                <Button onClick={() => setCreateCalendarDialogOpen(true)} type='button' >Create Calendar</Button>
+                <Button onClick={() => setDialog(true)} type='button' >Create Calendar</Button>
             </Grid>
 
             <Grid item xs={12}>
-                {calendar ? <Calendar calendar={calendar} contract={contract} /> : <></>}
+                {calendar ? <Calendar onChange={() => getCalendars()} calendar={calendar} contract={contract} /> : <></>}
             </Grid>
 
         </Grid>

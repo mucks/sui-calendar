@@ -12,7 +12,7 @@ export default function CreateCalendarForm(props: { contract: Contract, onCreate
 
     return <Box>
         <FormControl fullWidth>
-            <TextField label="Create Calendar" value={calendarTitle} onChange={e => setCalendarTitle(e.target.value)} />
+            <TextField label="Calendar Title" value={calendarTitle} onChange={e => setCalendarTitle(e.target.value)} />
         </FormControl>
         <Button onClick={() => createCalendar()} type='button' >Create Calendar</Button>
     </Box>

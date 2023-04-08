@@ -6,10 +6,16 @@ import { CalendarEventType } from "../types/CalendarEventType";
 
 const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
 const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
-const CALENDAR_OBJECT_TYPE = `${PACKAGE_ID}::calendar::Calendar`;
-const CALENDAR_EVENT_OBJECT_TYPE = `${PACKAGE_ID}::calendar::CalendarEvent`;
 
-const provider = new JsonRpcProvider(localnetConnection);
+// if the package id has a leading 0 (0x0), we need to replace it with 0x
+// this is a bit of a hack and should be fixed in the future
+const OBJECT_TYPE_BASE = PACKAGE_ID.replace('0x0', '0x');
+const CALENDAR_OBJECT_TYPE = `${OBJECT_TYPE_BASE}::calendar::Calendar`;
+
+const PROD = import.meta.env.PROD;
+const connection = PROD ? undefined : localnetConnection;
+
+const provider = new JsonRpcProvider(connection);
 
 const getObjectContentsByType = async (owner: string, type: string) => {
     const resp = await provider.getOwnedObjects({ owner: owner, options: { showContent: true } });
@@ -46,18 +52,6 @@ const useContract = () => {
         });
     }
 
-    const getCalendarEvents = async (calendarId: string): Promise<CalendarEventType[]> => {
-        const events = await getObjectContentsByType(owner, CALENDAR_EVENT_OBJECT_TYPE);
-        console.log(events);
-        return events.map(e => {
-            return {
-                title: e.fields.title,
-                start: new Date(+e.fields.start_timestamp),
-                end: new Date(+e.fields.end_timestamp),
-                id: e.fields.id.id
-            }
-        });
-    }
 
 
     const createCalendar = async (name: string) => {
@@ -94,12 +88,14 @@ const useContract = () => {
         });
     }
 
-    const deleteCalendarEvent = async (eventId: string) => {
+    const deleteCalendarEvent = async (calendarId: string, eventId: string) => {
         const tx = new TransactionBlock();
         tx.moveCall({
             target: `${PACKAGE_ID}::calendar::delete_calendar_event`,
             arguments: [
-                tx.object(eventId),
+                tx.object(STATISTICS_OBJECT_ID),
+                tx.object(calendarId),
+                tx.pure(+eventId),
             ],
         });
 
@@ -114,11 +110,35 @@ const useContract = () => {
         const calendars = await getObjectContentsByType(owner, CALENDAR_OBJECT_TYPE);
 
         return calendars.map(c => {
+            const events: CalendarEventType[] = c.fields.events.map((e: any) => {
+                return {
+                    title: e.fields.title,
+                    start: new Date(+e.fields.start_timestamp),
+                    end: new Date(+e.fields.end_timestamp),
+                    id: e.fields.id
+                }
+            });
             return {
                 title: c.fields.title,
-                id: c.fields.id.id
+                id: c.fields.id.id,
+                events: events
             }
         })
+    }
+
+    const deleteCalendar = async (calendarId: string) => {
+        const tx = new TransactionBlock();
+        tx.moveCall({
+            target: `${PACKAGE_ID}::calendar::delete_calendar`,
+            arguments: [
+                tx.object(STATISTICS_OBJECT_ID),
+                tx.object(calendarId),
+            ],
+        });
+
+        await wallet.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+        });
     }
 
 
@@ -130,9 +150,9 @@ const useContract = () => {
 
     return {
         isReady,
+        deleteCalendar,
         deleteCalendarEvent,
         createCalendarEvent,
-        getCalendarEvents,
         debugPrintMessage,
         createCalendar,
         getCalendars,
