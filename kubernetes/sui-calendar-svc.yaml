@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sui-calendar-svc
+  namespace: sui-calendar
+spec:
+  selector:
+    app: sui-calendar
+  ports:
+    - port: 80

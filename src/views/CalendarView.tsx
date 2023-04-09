@@ -38,7 +38,7 @@ export default function CalendarView() {
 
 
     return <Container maxWidth="xl">
-        <LoadingOverlay open={!contract.isReady || contract.loading} />
+        <LoadingOverlay open={contract.loading} />
         <Grid container spacing={2}>
             <Grid item xs={2}>
                 <CalendarList onDelete={(id) => deleteCalendar(id)} onChange={onDisabledChange} calendars={calendars} />

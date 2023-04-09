@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sui-calendar
+  namespace: sui-calendar
+spec:
+  selector:
+    matchLabels:
+      app: sui-calendar
+  template:
+    metadata:
+      labels:
+        app: sui-calendar
+    spec:
+      containers:
+        - name: sui-calendar
+          image: ghcr.io/mucks/sui-calendar:master
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com

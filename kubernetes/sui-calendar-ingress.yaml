@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sui-calendar
+  namespace: sui-calendar
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    cert-manager.io/cluster-issuer: "default-issuer"
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-redirect-http-to-https@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - sui-calendar.mucks.dev
+      secretName: tls-sui-calendar-mucks-dev
+  rules:
+    - host: sui-calendar.mucks.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sui-calendar-svc
+                port:
+                  number: 80
