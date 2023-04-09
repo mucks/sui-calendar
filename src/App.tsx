@@ -20,7 +20,9 @@ function App() {
         <ThemeProvider theme={darkTheme}>
           <CssBaseline />
           <main>
-            <ConnectButton />
+            <div style={{ float: 'right' }}>
+              <ConnectButton />
+            </div>
             <Home />
           </main>
         </ThemeProvider>

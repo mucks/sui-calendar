@@ -3,4 +3,5 @@ export type CalendarEventType = {
     title: string;
     start: Date;
     end: Date;
+    calendarId?: string;
 }
