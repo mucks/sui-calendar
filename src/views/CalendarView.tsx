@@ -1,6 +1,6 @@
-import { Box, Button, Container, Dialog, DialogTitle, FormControl, Grid, InputLabel, MenuItem, Select } from "@mui/material";
+import { Box, Button, Container, Dialog, DialogTitle, FormControl, FormGroup, Grid, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import useContract from "../hooks/useContract";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import CreateCalendarForm from "../components/CreateCalendarForm";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { CalendarType } from "../types/CalendarType";
@@ -17,10 +17,11 @@ export default function CalendarView() {
     useEffect(() => {
         // This is a hack to wait for the contract to be ready
         if (!contract.isReady) return;
+        if (!contract.user) return;
         getCalendars();
 
 
-    }, [contract.isReady])
+    }, [contract.isReady, contract.user])
 
     const deleteCalendar = async (calendarId: string) => {
         await contract.deleteCalendar(calendarId);
@@ -37,11 +38,10 @@ export default function CalendarView() {
     }
 
 
-    return <Container maxWidth="xl">
-        <LoadingOverlay open={contract.loading} />
-        <Grid container spacing={2}>
+    const renderHasUser = () => {
+        return <Fragment>
             <Grid item xs={2}>
-                <CalendarList onDelete={(id) => deleteCalendar(id)} onChange={onDisabledChange} calendars={calendars} />
+                <CalendarList onShare={(id, addr) => contract.shareCalendar(id, addr)} onDelete={(id) => deleteCalendar(id)} onChange={onDisabledChange} calendars={calendars} />
                 <Dialog onClose={() => setDialog(false)} open={dialog}>
                     <DialogTitle>Create Calendar</DialogTitle>
                     <Box sx={{ p: 2 }}>
@@ -50,11 +50,32 @@ export default function CalendarView() {
                 </Dialog>
                 <Button onClick={() => setDialog(true)} type='button' >Create Calendar</Button>
             </Grid>
-
             <Grid item xs={10}>
                 <Calendar onChange={() => getCalendars()} calendars={calendars} disabled={disabled} contract={contract} />
             </Grid>
+        </Fragment>
+    }
 
+    // CreateUserForm
+    const [username, setUsername] = useState('');
+
+    const renderNoUser = () => {
+        return <Grid item xs={12}>
+            <FormGroup>
+                <FormControl>
+                    <TextField label="Username" value={username} onChange={e => setUsername(e.target.value)} />
+                </FormControl>
+                <Button type='button' onClick={() => contract.createUser(username)}>Create User</Button>
+            </FormGroup>
+        </Grid>
+    }
+    //
+
+
+    return <Container maxWidth="xl">
+        <LoadingOverlay open={contract.loading} />
+        <Grid container spacing={2}>
+            {contract.user ? renderHasUser() : renderNoUser()}
         </Grid>
     </Container>
 }

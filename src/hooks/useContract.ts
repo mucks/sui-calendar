@@ -3,6 +3,7 @@ import { useWallet } from "@suiet/wallet-kit";
 import { useEffect, useState } from "react";
 import { CalendarType } from "../types/CalendarType";
 import { CalendarEventType } from "../types/CalendarEventType";
+import { UserType } from "../types/UserType";
 
 const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
 const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
@@ -11,6 +12,7 @@ const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
 // this is a bit of a hack and should be fixed in the future
 const OBJECT_TYPE_BASE = PACKAGE_ID.replace('0x0', '0x');
 const CALENDAR_OBJECT_TYPE = `${OBJECT_TYPE_BASE}::calendar::Calendar`;
+const USER_OBJECT_TYPE = `${OBJECT_TYPE_BASE}::calendar::User`;
 
 const PROD = import.meta.env.PROD;
 const connection = PROD ? undefined : localnetConnection;
@@ -33,6 +35,8 @@ const useContract = () => {
     const [owner, setOwner] = useState<string>('');
     const [loading, setLoading] = useState(false);
 
+    const [user, setUser] = useState<UserType | null>(null);
+
     // This is a temporary solution and should be replaced with a better solution
     const wait = async () => {
         const waitTime = PROD ? 5000 : 1000;
@@ -47,6 +51,73 @@ const useContract = () => {
             setOwner(wallet.account.address);
         }
     }, [wallet.account]);
+
+    useEffect(() => {
+        reloadUser();
+    }, [owner])
+
+
+    const reloadUser = async () => {
+        if (owner) {
+            const _user = await getUser();
+            setUser(_user);
+        }
+    }
+
+    const shareCalendar = async (calendarId: string, address: string) => {
+        const tx = new TransactionBlock();
+
+        tx.moveCall({
+            target: `${PACKAGE_ID}::calendar::share_calendar`,
+            arguments: [
+                tx.object(STATISTICS_OBJECT_ID),
+                tx.object(calendarId),
+                tx.pure(address),
+            ],
+        });
+
+        await wallet.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+        });
+
+        await wait();
+
+    }
+
+
+
+    const createUser = async (name: string) => {
+        const tx = new TransactionBlock();
+
+        tx.moveCall({
+            target: `${PACKAGE_ID}::calendar::create_user`,
+            arguments: [tx.object(STATISTICS_OBJECT_ID), tx.pure(name)],
+        });
+
+        await wallet.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+        });
+
+        await wait();
+
+        await reloadUser();
+    }
+
+    const getUser = async (): Promise<UserType | null> => {
+        const users = await getObjectContentsByType(owner, USER_OBJECT_TYPE);
+        if (users.length === 0) {
+            return null;
+        }
+
+
+        return {
+            id: users[0].fields.id.id,
+            name: users[0].fields.name,
+            calendars: users[0].fields.calendars,
+        };
+
+
+    }
 
 
 
@@ -67,18 +138,28 @@ const useContract = () => {
     const createCalendar = async (name: string) => {
         const tx = new TransactionBlock();
 
+        if (!user) {
+            throw new Error('User is not set');
+        }
+
         tx.moveCall({
             target: `${PACKAGE_ID}::calendar::create_calendar`,
             arguments: [
                 tx.object(STATISTICS_OBJECT_ID),
+                tx.object(user.id),
                 tx.pure(name)],
         });
 
         await wallet.signAndExecuteTransactionBlock({
             transactionBlock: tx,
         });
+
         await wait();
+
+        await reloadUser();
     }
+
+
 
     const createCalendarEvent = async (calendarId: string, name: string, start: string, end: string) => {
         const tx = new TransactionBlock();
@@ -117,14 +198,21 @@ const useContract = () => {
         });
 
         await wait();
+
+        await reloadUser();
     }
 
 
 
     const getCalendars = async (): Promise<CalendarType[]> => {
-        const calendars = await getObjectContentsByType(owner, CALENDAR_OBJECT_TYPE);
+        if (!user) {
+            throw new Error('User is not set');
+        }
 
-        return calendars.map(c => {
+        const objects = await provider.multiGetObjects({ ids: user.calendars, options: { showContent: true } })
+
+        return objects.map(o => {
+            const c: any = o.data!.content;
             const events: CalendarEventType[] = c.fields.events.map((e: any) => {
                 return {
                     title: e.fields.title,
@@ -136,17 +224,23 @@ const useContract = () => {
             return {
                 title: c.fields.title,
                 id: c.fields.id.id,
+                sharedWith: c.fields.shared_with,
                 events: events
             }
         })
     }
 
     const deleteCalendar = async (calendarId: string) => {
+        if (!user) {
+            throw new Error('User is not set');
+        }
+
         const tx = new TransactionBlock();
         tx.moveCall({
             target: `${PACKAGE_ID}::calendar::delete_calendar`,
             arguments: [
                 tx.object(STATISTICS_OBJECT_ID),
+                tx.object(user.id),
                 tx.object(calendarId),
             ],
         });
@@ -156,6 +250,8 @@ const useContract = () => {
         });
 
         await wait();
+
+        await reloadUser();
     }
 
 
@@ -168,6 +264,10 @@ const useContract = () => {
     return {
         loading,
         isReady,
+        shareCalendar,
+        user,
+        createUser,
+        getUser,
         deleteCalendar,
         deleteCalendarEvent,
         createCalendarEvent,

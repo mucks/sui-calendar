@@ -12,25 +12,26 @@ module sui_calendar::calendar {
     // error codes
     const ERR_NOT_AUTHORIZED: u64 = 401;
     const ERR_ALREADY_SHARED: u64 = 500;
-
-
-    fun init(ctx: &mut TxContext) {
-        let statistics = Statistics {
-            id: object::new(ctx),
-            calendar_count: 0,
-            event_count: 0,
-        };
-
-        // make the statistics object shared so that it can be mutated by all transactions that have access to it
-        transfer::share_object(statistics);
-
-    }
-
+    const ERR_CALENDAR_SHOULD_BE_DELETED: u64 = 501;
+    const ERR_USER_ALREADY_EXISTS: u64 = 502;
+    
     struct Statistics has key, store {
         id: UID,
         calendar_count: u64,
         event_count: u64,
+        user_count: u64,
+        users: vector<address>,
+        pending_calendar_share: vector<address>,
     }
+
+
+    struct User has key {
+        id: UID,
+        name: String,
+        calendars: vector<address>,
+    }
+
+
 
     struct Calendar has key {
         id: UID,
@@ -39,6 +40,7 @@ module sui_calendar::calendar {
         events_created: u64,
         events: vector<CalendarEvent>,
         shared_with: vector<address>,
+        should_delete: bool,
     }
 
 
@@ -49,13 +51,50 @@ module sui_calendar::calendar {
         start_timestamp: u64,
         end_timestamp: u64,
     }
+    
+    fun init(ctx: &mut TxContext) {
+        let statistics = Statistics {
+            id: object::new(ctx),
+            calendar_count: 0,
+            event_count: 0,
+            user_count: 0,
+            users: vector::empty(),
+            pending_calendar_share: vector::empty(),
+        };
+
+        // make the statistics object shared so that it can be mutated by all transactions that have access to it
+        transfer::share_object(statistics);
+
+    }
+
 
     public fun debug_print_message(debug_input: vector<u8>) {
         let s: std::string::String = std::string::utf8(debug_input);
         debug::print(&s);
     }
 
-    public entry fun create_calendar(stats: &mut Statistics, title_bytes: vector<u8>, ctx: &mut TxContext) {
+    public entry fun create_user(stats: &mut Statistics, name_bytes: vector<u8>, ctx: &mut TxContext) {
+        let sender = tx_context::sender(ctx);
+
+        if (vector::contains(&stats.users, &sender)) {
+            abort  ERR_USER_ALREADY_EXISTS
+        };
+
+        let user = User {
+            id: object::new(ctx),
+            name: string::utf8(name_bytes),
+            calendars: vector::empty(),
+        };
+
+        transfer::transfer(user, sender);
+
+
+        stats.user_count = stats.user_count + 1;
+        vector::push_back(&mut stats.users, sender);
+
+    }
+
+    public entry fun create_calendar(stats: &mut Statistics, user: &mut User, title_bytes: vector<u8>, ctx: &mut TxContext) {
 
         let sender = tx_context::sender(ctx);
 
@@ -66,7 +105,10 @@ module sui_calendar::calendar {
             events_created: 0,
             events: vector::empty(),
             shared_with: vector::empty(),
+            should_delete: false,
         };
+
+        vector::push_back(&mut user.calendars, object::uid_to_address(&calendar.id));
 
         transfer::share_object(calendar);
         
@@ -90,16 +132,20 @@ module sui_calendar::calendar {
         };
     }
 
-    public entry fun share_calendar(calendar: &mut Calendar, addr: address, ctx: &mut TxContext) {
+    // TODO: add approve share method
+    public entry fun share_calendar(stats: &mut Statistics, calendar: &mut Calendar, addr: address, ctx: &mut TxContext) {
         require_creator(calendar, tx_context::sender(ctx));
+
+        if (vector::contains(&stats.pending_calendar_share, &addr)) {
+            abort ERR_ALREADY_SHARED
+        };
 
         if (vector::contains(&calendar.shared_with, &addr)) {
             abort ERR_ALREADY_SHARED
         };
 
         vector::push_back(&mut calendar.shared_with, addr);
-
-        //debug::print(&b"sharing calendar");
+        vector::push_back(&mut stats.pending_calendar_share, addr);
 
     }
 
@@ -118,12 +164,17 @@ module sui_calendar::calendar {
 
 
     // TODO: currently it's for some reason not allowed to delete shared objects
-    public entry fun delete_calendar(stats: &mut Statistics, calendar: Calendar, ctx: &mut TxContext) {
-        require_creator(&calendar, tx_context::sender(ctx));
+    public entry fun delete_calendar(stats: &mut Statistics, user: &mut User, calendar: &mut Calendar, ctx: &mut TxContext) {
+        require_creator(calendar, tx_context::sender(ctx));
 
         let event_count = vector::length(&mut calendar.events);
-        let Calendar { id, title: _, events: _, events_created: _, shared_with: _ , creator: _ } = calendar;
-        object::delete(id);
+        calendar.should_delete = true;
+
+        let (found, index) = vector::index_of(&user.calendars, &object::uid_to_address(&calendar.id));
+
+        if (found) {
+            vector::remove(&mut user.calendars, index);
+        };
 
         stats.event_count = stats.event_count - event_count;
         stats.calendar_count = stats.calendar_count - 1;
@@ -133,6 +184,10 @@ module sui_calendar::calendar {
 
     public entry fun create_calendar_event(stats: &mut Statistics, calendar: &mut Calendar, title_bytes: vector<u8>, start_timestamp: u64, end_timestamp: u64, ctx: &mut TxContext) {
         require_share(calendar, tx_context::sender(ctx));
+
+        if (calendar.should_delete) {
+            abort ERR_CALENDAR_SHOULD_BE_DELETED
+        };
 
         let calendar_id = object::id(calendar);
 
@@ -183,7 +238,7 @@ module sui_calendar::calendar {
         let title_bytes = vector::empty<u8>();
         
         let admin = @0xABBA;
-        let user = @0x1234;
+        let some_wallet = @0x1234;
 
         let scenario = test_scenario::begin(admin);
 
@@ -193,6 +248,16 @@ module sui_calendar::calendar {
             init(test_scenario::ctx(&mut scenario));
         };
 
+        debug_print_message(b"create user ...");
+
+        // create user
+        test_scenario::next_tx(&mut scenario, admin);
+        {
+            let stats = test_scenario::take_shared<Statistics>(&mut scenario);
+            create_user(&mut stats, title_bytes, test_scenario::ctx(&mut scenario));
+            test_scenario::return_shared(stats);
+        };
+
 
 
         // create calendar
@@ -200,7 +265,9 @@ module sui_calendar::calendar {
         {
 
             let stats = test_scenario::take_shared<Statistics>(&mut scenario);
-            create_calendar(&mut stats, title_bytes, test_scenario::ctx(&mut scenario));
+            let user = test_scenario::take_from_sender<User>(&mut scenario);
+            create_calendar(&mut stats, &mut user, title_bytes, test_scenario::ctx(&mut scenario));
+            test_scenario::return_to_sender(&mut scenario, user);
             test_scenario::return_shared(stats);
         };
 
@@ -270,7 +337,10 @@ module sui_calendar::calendar {
         {
             let stats = test_scenario::take_shared<Statistics>(&mut scenario);
             let calendar = test_scenario::take_shared<Calendar>(&mut scenario);
-            delete_calendar(&mut stats, calendar, test_scenario::ctx(&mut scenario));
+            let user = test_scenario::take_from_sender<User>(&mut scenario);
+            delete_calendar(&mut stats, &mut user, &mut calendar, test_scenario::ctx(&mut scenario));
+            test_scenario::return_to_sender(&mut scenario, user);
+            test_scenario::return_shared(calendar);
             test_scenario::return_shared(stats);
         };
         
@@ -297,7 +367,9 @@ module sui_calendar::calendar {
         test_scenario::next_tx(&mut scenario, admin);
         {
             let stats = test_scenario::take_shared<Statistics>(&mut scenario);
-            create_calendar(&mut stats, title_bytes, test_scenario::ctx(&mut scenario));
+            let user = test_scenario::take_from_sender<User>(&mut scenario);
+            create_calendar(&mut stats, &mut user, title_bytes, test_scenario::ctx(&mut scenario));
+            test_scenario::return_to_sender(&mut scenario, user);
             test_scenario::return_shared(stats);
         };
         
@@ -307,11 +379,26 @@ module sui_calendar::calendar {
         test_scenario::next_tx(&mut scenario, admin);
         {
             let calendar = test_scenario::take_shared<Calendar>(&mut scenario);
-            share_calendar(&mut calendar, user, test_scenario::ctx(&mut scenario));
+            let stats = test_scenario::take_shared<Statistics>(&mut scenario);
+            share_calendar(&mut stats, &mut calendar, some_wallet, test_scenario::ctx(&mut scenario));
             test_scenario::return_shared(calendar);
+            test_scenario::return_shared(stats);
         };
         
         debug_print_message(b"... shared calendar");
+
+        // create event as other user on shared calendar
+
+        test_scenario::next_tx(&mut scenario, some_wallet);
+        {
+            let stats = test_scenario::take_shared<Statistics>(&mut scenario);
+            let calendar = test_scenario::take_shared<Calendar>(&mut scenario);
+            create_calendar_event(&mut stats, &mut calendar, title_bytes, 0, 0, test_scenario::ctx(&mut scenario));
+            test_scenario::return_shared(stats);
+            test_scenario::return_shared(calendar);
+        };
+
+
         
 
 

@@ -21,7 +21,7 @@ statistics_object_id=$(echo $statistics | grep -oP '(?<=objectId": String\(")[^"
 echo "packageId: ${package_id}"
 echo "statisticsObjectId: ${statistics_object_id}"
 
-echo "VITE_MOVE_PACKAGE_ID=${package_id}" > ../../.env
-echo "VITE_MOVE_STATISTICS_OBJECT_ID=${statistics_object_id}" >> ../../.env
+echo -n "VITE_MOVE_PACKAGE_ID=${package_id}\n" > ../../.env
+echo -n "VITE_MOVE_STATISTICS_OBJECT_ID=${statistics_object_id}" >> ../../.env
 
 
