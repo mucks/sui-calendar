@@ -21,7 +21,7 @@ module sui_calendar::calendar {
         event_count: u64,
         user_count: u64,
         users: vector<address>,
-        pending_calendar_share: vector<address>,
+        pending_calendar_shares: vector<Share>,
     }
 
 
@@ -29,6 +29,12 @@ module sui_calendar::calendar {
         id: UID,
         name: String,
         calendars: vector<address>,
+    }
+
+    struct Share has store, drop {
+        calendar_address: address,
+        // the address to share the calendar with
+        user_address: address,
     }
 
 
@@ -59,7 +65,7 @@ module sui_calendar::calendar {
             event_count: 0,
             user_count: 0,
             users: vector::empty(),
-            pending_calendar_share: vector::empty(),
+            pending_calendar_shares: vector::empty(),
         };
 
         // make the statistics object shared so that it can be mutated by all transactions that have access to it
@@ -132,11 +138,39 @@ module sui_calendar::calendar {
         };
     }
 
+    public entry fun accept_share(stats: &mut Statistics, user: &mut User, addr: address, ctx: &mut TxContext) {
+        let sender = tx_context::sender(ctx);
+
+        let share = Share {
+            calendar_address: addr,
+            user_address: sender,
+        };
+
+        let (found, index) = vector::index_of(&stats.pending_calendar_shares, &share);
+
+        if (!found) {
+            abort ERR_NOT_AUTHORIZED
+        };
+
+        vector::push_back(&mut user.calendars, share.calendar_address);
+        vector::remove(&mut stats.pending_calendar_shares, index);
+    }
+
     // TODO: add approve share method
     public entry fun share_calendar(stats: &mut Statistics, calendar: &mut Calendar, addr: address, ctx: &mut TxContext) {
         require_creator(calendar, tx_context::sender(ctx));
 
-        if (vector::contains(&stats.pending_calendar_share, &addr)) {
+        // can't share calendar with yourself
+        if (addr == tx_context::sender(ctx)) {
+            abort ERR_ALREADY_SHARED
+        };
+
+        let share = Share {
+            calendar_address: object::uid_to_address(&calendar.id),
+            user_address: addr,
+        };
+
+        if (vector::contains(&stats.pending_calendar_shares, &share)) {
             abort ERR_ALREADY_SHARED
         };
 
@@ -145,7 +179,7 @@ module sui_calendar::calendar {
         };
 
         vector::push_back(&mut calendar.shared_with, addr);
-        vector::push_back(&mut stats.pending_calendar_share, addr);
+        vector::push_back(&mut stats.pending_calendar_shares, share);
 
     }
 

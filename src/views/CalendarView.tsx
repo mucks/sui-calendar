@@ -6,6 +6,7 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import { CalendarType } from "../types/CalendarType";
 import Calendar from "../components/Calendar";
 import CalendarList from "../components/CalendarList";
+import { StatisticsType } from "../types/StatisticsType";
 
 export default function CalendarView() {
     const contract = useContract();
@@ -13,12 +14,14 @@ export default function CalendarView() {
     const [calendars, setCalendars] = useState<CalendarType[]>([]);
     const [dialog, setDialog] = useState(false);
     const [disabled, setDisabled] = useState<string[]>([]);
+    const [stats, setStats] = useState<StatisticsType | null>(null);
 
     useEffect(() => {
         // This is a hack to wait for the contract to be ready
         if (!contract.isReady) return;
         if (!contract.user) return;
         getCalendars();
+        contract.getStats().then(setStats);
 
 
     }, [contract.isReady, contract.user])
@@ -37,9 +40,38 @@ export default function CalendarView() {
         setCalendars(calendars);
     }
 
+    const renderPendingCalendarShares = () => {
+
+        if (!stats) {
+            return;
+        }
+
+        const shares = stats.pendingCalendarShares.filter(share => share.userAddress == contract.owner);
+
+
+
+        return <Grid item xs={12}>
+            <h2>Pending Invites</h2>
+            <ul>
+                {shares.map(share => {
+                    return <li key={share.calendarAddress}>
+                        <p>
+                            {share.calendarAddress}
+                        </p>
+                        <Button onClick={() => contract.acceptShare(share.calendarAddress)}>Accept</Button>
+                    </li>
+                })}
+            </ul>
+
+        </Grid>
+
+
+    }
+
 
     const renderHasUser = () => {
         return <Fragment>
+            {renderPendingCalendarShares()}
             <Grid item xs={2}>
                 <CalendarList onShare={(id, addr) => contract.shareCalendar(id, addr)} onDelete={(id) => deleteCalendar(id)} onChange={onDisabledChange} calendars={calendars} />
                 <Dialog onClose={() => setDialog(false)} open={dialog}>

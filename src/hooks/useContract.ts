@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CalendarType } from "../types/CalendarType";
 import { CalendarEventType } from "../types/CalendarEventType";
 import { UserType } from "../types/UserType";
+import { StatisticsType } from "../types/StatisticsType";
 
 const PACKAGE_ID = import.meta.env.VITE_MOVE_PACKAGE_ID;
 const STATISTICS_OBJECT_ID = import.meta.env.VITE_MOVE_STATISTICS_OBJECT_ID;
@@ -254,18 +255,60 @@ const useContract = () => {
         await reloadUser();
     }
 
+    const acceptShare = async (calendarId: string) => {
+        if (!user) {
+            throw new Error('User is not set');
+        }
+
+        const tx = new TransactionBlock();
+        tx.moveCall({
+            target: `${PACKAGE_ID}::calendar::accept_share`,
+            arguments: [
+                tx.object(STATISTICS_OBJECT_ID),
+                tx.object(user.id),
+                tx.pure(calendarId),
+            ],
+        });
+
+        await wallet.signAndExecuteTransactionBlock({
+            transactionBlock: tx,
+        });
+
+        await wait();
+
+        await reloadUser();
+    }
 
 
-    const getStats = async () => {
+
+    const getStats = async (): Promise<StatisticsType> => {
         const stats = await provider.getObject({ id: STATISTICS_OBJECT_ID, options: { showContent: true } });
-        return stats;
+        const content: any | undefined = stats.data?.content;
+        if (content) {
+            console.log(content)
+
+            return {
+                id: content.fields.id.id,
+                userCount: +content.fields.user_count,
+                calendarCount: +content.fields.calendar_count,
+                eventCount: +content.fields.calendar_event_count,
+                users: content.fields.users,
+                pendingCalendarShares: content.fields.pending_calendar_shares.map((psc: any) => ({
+                    calendarAddress: psc.fields.calendar_address,
+                    userAddress: psc.fields.user_address,
+                }))
+            }
+        }
+        return Promise.reject('No stats found');
     }
 
     return {
+        acceptShare,
         loading,
         isReady,
         shareCalendar,
         user,
+        owner,
         createUser,
         getUser,
         deleteCalendar,
