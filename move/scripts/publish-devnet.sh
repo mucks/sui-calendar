@@ -6,7 +6,8 @@ sui client switch --env devnet
 
 gas_address=$(sui client gas | awk 'NR==4{print $1}')
 
-output=$(sui client publish . --gas $gas_address --gas-budget 30000)
+
+echo $output
 
 package_id=$(echo $output | grep -oP '(?<=packageId": String\(")[^"]+')
 
